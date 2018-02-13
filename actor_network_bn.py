@@ -1,4 +1,4 @@
-import tensorflow as tf 
+import tensorflow as tf
 from tensorflow.contrib.layers.python.layers import batch_norm as batch_norm
 import numpy as np
 import math
@@ -114,7 +114,7 @@ class ActorNetwork:
 
 
 	def batch_norm_layer(self,x,training_phase,scope_bn,activation=None):
-		return tf.cond(training_phase, 
+		return tf.cond(training_phase,
 		lambda: tf.contrib.layers.batch_norm(x, activation_fn=activation, center=True, scale=True,
 		updates_collections=None,is_training=True, reuse=None,scope=scope_bn,decay=0.9, epsilon=1e-5),
 		lambda: tf.contrib.layers.batch_norm(x, activation_fn =activation, center=True, scale=True,
@@ -134,4 +134,4 @@ class ActorNetwork:
 
 '''
 
-		
+
