@@ -1,9 +1,6 @@
 import tensorflow as tf
-from keras import initializers
 from keras.layers import Input, Dense, concatenate
 from keras.models import Model
-from keras.optimizers import Adam
-from keras.regularizers import l2
 
 LAYER1_SIZE = 400
 LAYER2_SIZE = 300
@@ -21,10 +18,15 @@ class CriticNetwork:
         # create q network
         self.model, self.state_input, self.action_input, self.q_value_output = \
             self.create_q_network(state_dim, action_dim)
+        self.net = self.model.trainable_weights
 
         # create target q network (the same structure with q network)
         self.target_model, _, _, _ = self.create_q_network(state_dim, action_dim)
 
+        self.y_input = tf.placeholder("float", [None, 1])
+        weight_decay = tf.add_n([L2 * tf.nn.l2_loss(var) for var in self.net])
+        self.cost = tf.reduce_mean(tf.square(self.y_input - self.q_value_output)) + weight_decay
+        self.optimizer = tf.train.AdamOptimizer(LEARNING_RATE).minimize(self.cost)
         self.action_gradients = tf.gradients(self.q_value_output, self.action_input)
         self.target_model.set_weights(self.model.get_weights())
 
@@ -40,24 +42,12 @@ class CriticNetwork:
         state_input = Input([state_dim])
         action_input = Input([action_dim])
 
-        init_kernel = initializers.uniform(minval=-3e-3, maxval=3e-3)
-
-        layer_1 = Dense(layer1_size, activation='relu',
-                        kernel_regularizer=l2(L2),
-                        bias_regularizer=l2(L2),
-                        kernel_initializer=init_kernel)(state_input)
+        layer_1 = Dense(layer1_size, activation='relu')(state_input)
         merge_layer = concatenate([layer_1, action_input])
-        layer_2 = Dense(layer2_size, activation='relu',
-                        kernel_regularizer=l2(L2),
-                        bias_regularizer=l2(L2),
-                        kernel_initializer=init_kernel)(merge_layer)
-        q_value_output = Dense(1, activation='linear',
-                               kernel_regularizer=l2(L2),
-                               bias_regularizer=l2(L2),
-                               kernel_initializer=init_kernel)(layer_2)
+        layer_2 = Dense(layer2_size, activation='relu')(merge_layer)
+        q_value_output = Dense(1, activation='linear')(layer_2)
 
         model = Model([state_input, action_input], q_value_output)
-        model.compile(optimizer=Adam(LEARNING_RATE), loss='mean_squared_error')
 
         return model, state_input, action_input, q_value_output
 
@@ -70,7 +60,11 @@ class CriticNetwork:
 
     def train(self, y_batch, state_batch, action_batch):
         self.time_step += 1
-        self.model.train_on_batch([state_batch, action_batch], y_batch)
+        self.sess.run(self.optimizer, feed_dict={
+            self.y_input: y_batch,
+            self.state_input: state_batch,
+            self.action_input: action_batch
+        })
 
     def gradients(self, state_batch, action_batch):
         return self.sess.run(self.action_gradients, feed_dict={
@@ -79,10 +73,10 @@ class CriticNetwork:
         })[0]
 
     def target_q(self, state_batch, action_batch):
-        return self.target_model.predict([state_batch, action_batch])
+        return self.target_model.predict_on_batch([state_batch, action_batch])
 
     def q_value(self, state_batch, action_batch):
-        return self.model.predict([state_batch, action_batch])
+        return self.model.predict_on_batch([state_batch, action_batch])
 
 
 '''
