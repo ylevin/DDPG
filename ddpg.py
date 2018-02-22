@@ -7,9 +7,11 @@ import gym
 import tensorflow as tf
 import numpy as np
 from ou_noise import OUNoise
-from critic_network import CriticNetwork
-from actor_network_bn import ActorNetwork
+from critic_network_keras import CriticNetwork
+from actor_network import ActorNetwork
 from replay_buffer import ReplayBuffer
+
+from keras import backend as K
 
 # Hyper Parameters:
 
@@ -31,6 +33,7 @@ class DDPG:
         self.action_dim = env.action_space.shape[0]
 
         self.sess = tf.InteractiveSession()
+        K.set_session(self.sess)
 
         self.actor_network = ActorNetwork(self.sess, self.state_dim, self.action_dim)
         self.critic_network = CriticNetwork(self.sess, self.state_dim, self.action_dim)

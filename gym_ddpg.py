@@ -9,8 +9,8 @@ gc.enable()
 ENV_NAME = 'Pendulum-v0'
 EPISODES = 10000
 TEST = 5
-TEST_EVERY = 10
-TEST_SINCE = 50
+TEST_EVERY = 20
+TEST_SINCE = 80
 
 
 def main():
