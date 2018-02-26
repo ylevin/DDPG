@@ -10,17 +10,22 @@ L2 = 0.01
 class CriticNetwork:
     """docstring for CriticNetwork"""
 
-    def __init__(self, sess, state_dim, action_dim, lr=LEARNING_RATE, tau=TAU, l2=L2):
+    def __init__(self, sess, state_dim, action_dim, lr=LEARNING_RATE, tau=TAU, l2=L2, network_factory=None):
         self.time_step = 0
         self.sess = sess
         self.tau = tau
+
+        if network_factory is None:
+            network_factory = CriticNetwork.create_q_network
+
         # create q network
-        self.model, self.state_input, self.action_input, self.q_value_output = \
-            self.create_q_network(state_dim, action_dim)
+        self.model = network_factory(state_dim, action_dim)
         self.net = self.model.trainable_weights
+        self.state_input, self.action_input = self.model.input
+        self.q_value_output = self.model.output
 
         # create target q network (the same structure with q network)
-        self.target_model, _, _, _ = self.create_q_network(state_dim, action_dim)
+        self.target_model = network_factory(state_dim, action_dim)
 
         self.y_input = tf.placeholder("float", [None, 1])
         weight_decay = tf.add_n([l2 * tf.nn.l2_loss(var) for var in self.net])
@@ -45,7 +50,7 @@ class CriticNetwork:
 
         model = Model([state_input, action_input], q_value_output)
 
-        return model, state_input, action_input, q_value_output
+        return model
 
     def update_target(self):
         model_weights = self.model.get_weights()

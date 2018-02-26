@@ -11,18 +11,24 @@ TAU = 0.001
 class ActorNetwork:
     """docstring for ActorNetwork"""
 
-    def __init__(self, sess, state_dim, action_dim, lr=LEARNING_RATE, tau=TAU):
+    def __init__(self, sess, state_dim, action_dim, lr=LEARNING_RATE, tau=TAU, network_factory=None):
         self.sess = sess
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.tau = tau
+
+        if network_factory is None:
+            network_factory = ActorNetwork.create_network
+
         # create actor network
-        self.model, self.state_input, self.action_output = \
-            ActorNetwork.create_network(state_dim, action_dim)
+        self.model = network_factory(state_dim, action_dim)
+        self.state_input = self.model.input
+        self.action_output = self.model.output
 
         # create target actor network
-        self.target_model, self.target_state_input, self.target_action_output = \
-            ActorNetwork.create_network(state_dim, action_dim)
+        self.target_model = network_factory(state_dim, action_dim)
+        self.target_state_input = self.target_model.input
+        self.target_action_output = self.target_model.output
 
         # define training rules
         self.q_gradient_input = tf.placeholder("float", [None, self.action_dim])
@@ -42,7 +48,7 @@ class ActorNetwork:
         layer_2 = Dense(300, activation='relu')(layer_1)
         action_output = Dense(action_dim, activation='tanh')(layer_2)
         model = Model([state_input], action_output)
-        return model, state_input, action_output
+        return model
 
     def update_target(self):
         model_weights = self.model.get_weights()
@@ -71,16 +77,16 @@ class ActorNetwork:
 
 
 '''
-	def load_network(self):
-		self.saver = tf.train.Saver()
-		checkpoint = tf.train.get_checkpoint_state("saved_actor_networks")
-		if checkpoint and checkpoint.model_checkpoint_path:
-			self.saver.restore(self.sess, checkpoint.model_checkpoint_path)
-			print "Successfully loaded:", checkpoint.model_checkpoint_path
-		else:
-			print "Could not find old network weights"
-	def save_network(self,time_step):
-		print 'save actor-network...',time_step
-		self.saver.save(self.sess, 'saved_actor_networks/' + 'actor-network', global_step = time_step)
+    def load_network(self):
+        self.saver = tf.train.Saver()
+        checkpoint = tf.train.get_checkpoint_state("saved_actor_networks")
+        if checkpoint and checkpoint.model_checkpoint_path:
+            self.saver.restore(self.sess, checkpoint.model_checkpoint_path)
+            print "Successfully loaded:", checkpoint.model_checkpoint_path
+        else:
+            print "Could not find old network weights"
 
+    def save_network(self, time_step):
+        print 'save actor-network...', time_step
+        self.saver.save(self.sess, 'saved_actor_networks/' + 'actor-network', global_step=time_step)
 '''

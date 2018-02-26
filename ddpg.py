@@ -3,7 +3,6 @@
 # Author: Flood Sung
 # Date: 2016.5.4
 # -----------------------------------
-import gym
 import tensorflow as tf
 import numpy as np
 from ou_noise import OUNoise
@@ -24,19 +23,18 @@ GAMMA = 0.99
 class DDPG:
     """docstring for DDPG"""
 
-    def __init__(self, env):
+    def __init__(self, state_dim, action_dim):
         self.name = 'DDPG'  # name for uploading results
-        self.environment = env
         # Randomly initialize actor network and critic network
         # with both their target networks
-        self.state_dim = env.observation_space.shape[0]
-        self.action_dim = env.action_space.shape[0]
+        self.state_dim = state_dim
+        self.action_dim = action_dim
 
         self.sess = tf.InteractiveSession()
         K.set_session(self.sess)
 
-        self.actor_network = ActorNetwork(self.sess, self.state_dim, self.action_dim)
-        self.critic_network = CriticNetwork(self.sess, self.state_dim, self.action_dim)
+        self.actor_network = ActorNetwork(self.sess, state_dim, action_dim)
+        self.critic_network = CriticNetwork(self.sess, state_dim, action_dim)
 
         # initialize replay buffer
         self.replay_buffer = ReplayBuffer(REPLAY_BUFFER_SIZE)
@@ -105,3 +103,36 @@ class DDPG:
         # Re-iniitialize the random process when an episode ends
         if done:
             self.exploration_noise.reset()
+
+
+class DDPGMethod:
+    def __init__(self, state_dim, action_dim):
+        self.ddpg = DDPG(state_dim, action_dim)
+        self._agent = DDPGAgent(self.ddpg)
+        self._train_agent = DDPGTrainAgent(self.ddpg)
+        self.train_episode_count = 1
+
+    def agent(self):
+        return self._agent
+
+    def train_agent(self):
+        return self._train_agent
+
+
+class DDPGAgent:
+    def __init__(self, ddpg):
+        self.ddpg = ddpg
+
+    def action(self, state):
+        return self.ddpg.action(state)
+
+
+class DDPGTrainAgent:
+    def __init__(self, ddpg):
+        self.ddpg = ddpg
+
+    def action(self, state):
+        return self.ddpg.noise_action(state)
+
+    def perceive(self, state, action, reward, next_state, done):
+        self.ddpg.perceive(state, action, reward, next_state, done)
