@@ -18,10 +18,11 @@ EPSILON = 0.05
 
 
 class DifferentialEvolutionMethod:
-    def __init__(self, state_dim, action_dim, population_size=POPULATION_SIZE, attempts_size=ATTEMPTS_SIZE,
+    def __init__(self, env, population_size=POPULATION_SIZE, attempts_size=ATTEMPTS_SIZE,
                  actor_network_factory=None):
-        self.state_dim = state_dim
-        self.action_dim = action_dim
+        self.env = env
+        self.state_dim = env.state_dim
+        self.action_dim = env.action_dim
         self.actor_network_factory = \
             actor_network_factory if actor_network_factory is not None \
             else DifferentialEvolutionMethod.create_network
@@ -31,57 +32,56 @@ class DifferentialEvolutionMethod:
         self.attempts_size = attempts_size
         self.population = []
         for i in xrange(population_size):
-            self.population += [self.actor_network_factory(state_dim, action_dim)]
+            self.population += [self.actor_network_factory(self.state_dim, self.action_dim)]
 
         self.sess.run(tf.global_variables_initializer())
-        self.train_agents = self.train_agent_generator()
 
         self.best_score = None
-        self.best_individual = None
+        self.best_n = 0
 
-    def train_agent(self):
-        return self.train_agents.next()
+    def test_model(self, model):
+        agent = DifferentialEvolutionTrainAgent(model)
+        state = self.env.reset()
 
-    def agent(self):
-        return DifferentialEvolutionAgent(self.best_individual, self.sess)
+        for i in xrange(self.env.steps_count):
+            action = agent.action(state)
+            next_state, reward, done, _ = self.env.step(action)
+            agent.add_reward(reward)
+            state = next_state
+            if done:
+                break
 
-    def train_agent_generator(self):
-        while True:
-            for i in xrange(self.population_size):
-                print "select {}".format(i)
-                new_individual = self.crossover(self.population[i])
-                original_agent = DifferentialEvolutionTrainAgent(self.population[i], self.sess)
-                new_agent = DifferentialEvolutionTrainAgent(new_individual, self.sess)
-                sum_reward_original = 0
-                sum_reward_new = 0
+        return agent.reward
 
-                for _ in xrange(self.attempts_size):
-                    yield original_agent
-                    sum_reward_original += original_agent.reward
+    def train(self):
+        for i in xrange(self.population_size):
+            print "select {}".format(i)
+            original_model = self.population[i]
+            new_model = self.crossover(self.population[i])
+            sum_reward_original = 0
+            sum_reward_new = 0
 
-                for _ in xrange(self.attempts_size):
-                    yield new_agent
-                    sum_reward_new += new_agent.reward
+            for _ in xrange(self.attempts_size):
+                sum_reward_original += self.test_model(original_model)
+                sum_reward_new += self.test_model(new_model)
 
-                if sum_reward_new > sum_reward_original:
-                    print "new net is better: {} vs {}, let's replace!".format(sum_reward_new, sum_reward_original)
-                    self.population[i] = new_individual
-                else:
-                    print "new net lost: {} vs {}".format(sum_reward_new, sum_reward_original)
+            if sum_reward_new > sum_reward_original:
+                print "new net is better: {} vs {}, let's replace!".format(sum_reward_new, sum_reward_original)
+                self.population[i] = new_model
+            else:
+                print "new net lost: {} vs {}".format(sum_reward_new, sum_reward_original)
 
-                if self.best_score is None or sum_reward_new > self.best_score:
-                    self.best_score = sum_reward_new
-                    self.best_individual = new_individual
+            best_reward = max(sum_reward_new, sum_reward_original)
 
-                if self.best_score is None or sum_reward_original > self.best_score:
-                    self.best_score = sum_reward_original
-                    self.best_individual = self.population[i]
+            if self.best_score is None or best_reward > self.best_score:
+                self.best_score = sum_reward_new
+                self.best_n = i
 
     @staticmethod
     def create_network(state_dim, action_dim):
         state_input = Input([state_dim])
-        layer_1 = Dense(10, activation='relu', bias_initializer='glorot_uniform')(state_input)
-        layer_2 = Dense(10, activation='relu', bias_initializer='glorot_uniform')(layer_1)
+        layer_1 = Dense(100, activation='relu', bias_initializer='glorot_uniform')(state_input)
+        layer_2 = Dense(50, activation='relu', bias_initializer='glorot_uniform')(layer_1)
         action_output = Dense(action_dim, activation='tanh')(layer_2)
         model = Model([state_input], action_output)
         return model
@@ -113,24 +113,35 @@ class DifferentialEvolutionMethod:
 
         return new_individual
 
+    def demo(self):
+        agent = DifferentialEvolutionAgent(self.population[self.best_n])
+        state = self.env.reset()
+        total_reward = 0
+
+        for i in xrange(self.env.steps_count):
+            self.env.render()
+            action = agent.action(state)  # direct action for test
+            new_state, reward, done, _ = self.env.step(action)
+            state = new_state
+            total_reward += reward
+            if done:
+                break
+
+        return total_reward
+
 
 class DifferentialEvolutionAgent:
-    def __init__(self, model, sess):
+    def __init__(self, model):
         self.model = model
-        self.sess = sess
-        self.state_input = model.input
-        self.action_output = model.output
 
     def action(self, state):
-        return self.sess.run(self.action_output, feed_dict={
-            self.state_input: [state]
-        })[0]
+        return self.model.predict(np.expand_dims(state, axis=0))[0]
 
 
 class DifferentialEvolutionTrainAgent(DifferentialEvolutionAgent):
-    def __init__(self, model, sess):
-        DifferentialEvolutionAgent.__init__(self, model, sess)
+    def __init__(self, model):
+        DifferentialEvolutionAgent.__init__(self, model)
         self.reward = 0
 
-    def perceive(self, state, action, reward, next_state, done):
+    def add_reward(self, reward):
         self.reward = EPSILON * reward + self.reward * (1 - EPSILON)

@@ -106,33 +106,30 @@ class DDPG:
 
 
 class DDPGMethod:
-    def __init__(self, state_dim, action_dim):
-        self.ddpg = DDPG(state_dim, action_dim)
-        self._agent = DDPGAgent(self.ddpg)
-        self._train_agent = DDPGTrainAgent(self.ddpg)
-        self.train_episode_count = 1
+    def __init__(self, env):
+        self.env = env
+        self.ddpg = DDPG(env.state_dim, env.action_dim)
 
-    def agent(self):
-        return self._agent
+    def train(self):
+        state = self.env.reset()
+        for i in xrange(self.env.steps_count):
+            action = self.ddpg.noise_action(state)
+            next_state, reward, done, _ = self.env.step(action)
+            self.ddpg.perceive(state, action, reward, next_state, done)
+            state = next_state
+            if done:
+                break
 
-    def train_agent(self):
-        return self._train_agent
+    def demo(self):
+        state = self.env.reset()
+        total_reward = 0
 
+        for i in xrange(self.env.steps_count):
+            self.env.render()
+            action = self.ddpg.action(state)  # direct action for test
+            state, reward, done, _ = self.env.step(action)
+            total_reward += reward
+            if done:
+                break
 
-class DDPGAgent:
-    def __init__(self, ddpg):
-        self.ddpg = ddpg
-
-    def action(self, state):
-        return self.ddpg.action(state)
-
-
-class DDPGTrainAgent:
-    def __init__(self, ddpg):
-        self.ddpg = ddpg
-
-    def action(self, state):
-        return self.ddpg.noise_action(state)
-
-    def perceive(self, state, action, reward, next_state, done):
-        self.ddpg.perceive(state, action, reward, next_state, done)
+        return total_reward

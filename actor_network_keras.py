@@ -3,6 +3,8 @@ import tensorflow as tf
 from keras.layers import Input, Dense
 from keras.models import Model
 
+import numpy as np
+
 # Hyper Parameters
 LEARNING_RATE = 1e-4
 TAU = 0.001
@@ -67,10 +69,10 @@ class ActorNetwork:
         return self.model.predict_on_batch(state_batch)
 
     def action(self, state):
-        # return self.model.predict([state])
-        return self.sess.run(self.action_output, feed_dict={
-            self.state_input: [state]
-        })[0]
+        return self.model.predict(np.expand_dims(state, axis=0))[0]
+        # return self.sess.run(self.action_output, feed_dict={
+        #     self.state_input: [state]
+        # })[0]
 
     def target_actions(self, state_batch):
         return self.target_model.predict_on_batch(state_batch)

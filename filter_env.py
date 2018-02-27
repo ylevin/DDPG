@@ -69,6 +69,18 @@ def makeFilteredEnv(env):
             ''' has to be applied manually otherwise it makes the reward_threshold invalid '''
             return self.r_sc * reward + self.r_c
 
+        @property
+        def action_dim(self):
+            return self.action_space.shape[0]
+
+        @property
+        def state_dim(self):
+            return self.observation_space.shape[0]
+
+        @property
+        def steps_count(self):
+            return self.spec.timestep_limit
+
         def step(self, action):
 
             ac_f = np.clip(self.filter_action(action), self.action_space.low, self.action_space.high)
